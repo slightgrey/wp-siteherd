@@ -1,0 +1,16 @@
+{
+    "name": "slightgrey/wp-siteherd",
+    "description": "WordPress companion plugin for the WP Siteherd dashboard.",
+    "type": "wordpress-plugin",
+    "license": "GPL-2.0-or-later",
+    "require": {
+        "php": ">=7.4"
+    },
+    "require-dev": {
+        "phpunit/phpunit": "^11",
+        "php-stubs/wordpress-stubs": "^7.1"
+    },
+    "scripts": {
+        "test": "phpunit"
+    }
+}
