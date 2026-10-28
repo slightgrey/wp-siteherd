@@ -14,7 +14,8 @@ class Siteherd_Collector {
 	// 4: adds `rollbacks` (versions saved at the last update, available for rollback).
 	// 5: adds `translations` (pending language pack updates) and accepts "translations" update items,
 	//    and `site_icon` (the Site Icon URL from Settings → General, or null).
-	const SCHEMA = 5;
+	// 6: no new fields; accepts the install / delete / activate / deactivate job actions (plugin 0.7.0).
+	const SCHEMA = 6;
 
 	/**
 	 * @return array<string, mixed>

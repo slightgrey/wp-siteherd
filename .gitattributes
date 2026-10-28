@@ -1,0 +1,11 @@
+# Left out of the release zip (bin/build-zip.sh). Release zips must not contain
+# composer.json: its presence turns off self-updates for development copies.
+/.gitattributes export-ignore
+/.gitignore export-ignore
+/bin export-ignore
+/docs export-ignore
+/tests export-ignore
+/composer.json export-ignore
+/composer.lock export-ignore
+/phpunit.xml.dist export-ignore
+/README.md export-ignore

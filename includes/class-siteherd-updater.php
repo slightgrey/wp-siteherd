@@ -13,6 +13,9 @@
  * all of core isn't practical). Progress is pushed to the dashboard after each
  * item, and a fresh report is sent at the end.
  *
+ * The same pipeline installs plugins from wordpress.org and deletes, activates
+ * or deactivates them (job actions install / delete / activate / deactivate).
+ *
  * @package WP_Siteherd
  */
 
@@ -28,9 +31,21 @@ class Siteherd_Updater {
 	const KEEP_DAYS   = 30;
 	// A job still unfinished after this long is assumed dead (e.g. PHP was killed).
 	const STALE_AFTER = 1800;
+	const ACTIONS     = array( 'update', 'rollback', 'install', 'delete', 'activate', 'deactivate' );
+	// Actions that manage plugins rather than change versions.
+	const PLUGIN_ACTIONS = array( 'install', 'delete', 'activate', 'deactivate' );
 
 	/** @var Siteherd_Reporter */
 	private $reporter;
+
+	/** @var array|null Item being worked on, for report_fatal(). */
+	private $in_progress = null;
+
+	/** @var array Results of the items finished so far, for report_fatal(). */
+	private $done_results = array();
+
+	/** @var string|null Plugin file being activated, for report_fatal(). */
+	private $activating = null;
 
 	public function __construct( Siteherd_Reporter $reporter ) {
 		$this->reporter = $reporter;
@@ -38,8 +53,9 @@ class Siteherd_Updater {
 
 	/**
 	 * REST callback: POST /siteherd/v1/update with
-	 *   {job_id, action?: "update"|"rollback", items: [{type, id, version?}]}
+	 *   {job_id, action?: "update"|"rollback"|"install"|"delete"|"activate"|"deactivate", items: [{type, id, version?, activate?}]}
 	 * Rollback items are plugins/themes with the version to go back to.
+	 * Install items are wordpress.org plugin slugs; the other plugin actions take plugin files.
 	 * Signature checks happen in the route's permission_callback.
 	 */
 	public function queue( WP_REST_Request $request ) {
@@ -48,7 +64,7 @@ class Siteherd_Updater {
 		if ( ! preg_match( '/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/', $job_id ) ) {
 			return new WP_Error( 'siteherd_bad_job', 'job_id must be a UUID', array( 'status' => 400 ) );
 		}
-		$action = isset( $data['action'] ) && 'rollback' === $data['action'] ? 'rollback' : 'update';
+		$action = isset( $data['action'] ) && in_array( $data['action'], self::ACTIONS, true ) ? $data['action'] : 'update';
 		$items  = self::sanitize_items( isset( $data['items'] ) ? $data['items'] : null, $action );
 		if ( ! $items ) {
 			return new WP_Error( 'siteherd_bad_items', 'items must list 1-50 valid items', array( 'status' => 400 ) );
@@ -157,10 +173,24 @@ class Siteherd_Updater {
 			$baseline
 		);
 
-		$rollback = isset( $job['action'] ) && 'rollback' === $job['action'];
+		$action = isset( $job['action'] ) ? $job['action'] : 'update';
+		if ( in_array( $action, array( 'install', 'activate' ), true ) ) {
+			// Activating a plugin runs its code. If that is fatal, this request dies;
+			// report the job as failed instead of leaving the dashboard waiting.
+			register_shutdown_function( array( $this, 'report_fatal' ), $job );
+		}
 		foreach ( self::ordered( $job['items'] ) as $item ) {
-			if ( $rollback ) {
+			$this->in_progress = $item;
+			if ( 'rollback' === $action ) {
 				$results[] = $this->rollback_item( $item, $check_health );
+			} elseif ( 'install' === $action ) {
+				$results[] = $this->install_item( $item['id'], ! empty( $item['activate'] ), $check_health );
+			} elseif ( 'activate' === $action ) {
+				$results[] = $this->activate_item( $item['id'], $check_health );
+			} elseif ( 'deactivate' === $action ) {
+				$results[] = $this->deactivate_item( $item['id'] );
+			} elseif ( 'delete' === $action ) {
+				$results[] = $this->delete_item( $item['id'] );
 			} elseif ( 'plugin' === $item['type'] ) {
 				$results[] = $this->update_plugin( $item['id'], $check_health );
 			} elseif ( 'theme' === $item['type'] ) {
@@ -171,9 +201,36 @@ class Siteherd_Updater {
 				$results[] = $this->update_core( $check_health );
 			}
 			$this->push( $job, 'running', $results, null, $note );
+			$this->done_results = $results;
 		}
 
+		$this->in_progress = null;
 		$this->finish( $job, 'completed', $results, null, $note );
+	}
+
+	/**
+	 * Shutdown handler for install/activate jobs: if PHP died with a fatal error
+	 * while a plugin was being activated, mark that item and the job as failed.
+	 */
+	public function report_fatal( $job ) {
+		$error = error_get_last();
+		if ( null === $this->in_progress || ! $error || ! in_array( $error['type'], array( E_ERROR, E_PARSE, E_CORE_ERROR, E_COMPILE_ERROR ), true ) ) {
+			return;
+		}
+		$item    = $this->in_progress;
+		$results = $this->done_results;
+		$message = strtok( wp_strip_all_tags( $error['message'] ), "\n" );
+		if ( $this->activating ) {
+			// WordPress only marks a plugin active after including it, but be sure.
+			deactivate_plugins( $this->activating, true );
+			/* translators: %s: PHP error message */
+			$message = sprintf( __( 'Activating the plugin caused a fatal error, so it was left inactive: %s', 'wp-siteherd' ), $message );
+		} else {
+			/* translators: %s: PHP error message */
+			$message = sprintf( __( 'Stopped by a PHP fatal error: %s', 'wp-siteherd' ), $message );
+		}
+		$results[] = self::outcome( self::result( 'plugin', $item['id'] ), 'failed', $message );
+		$this->finish( $job, 'completed', $results );
 	}
 
 	/**
@@ -192,6 +249,9 @@ class Siteherd_Updater {
 	private static function sanitize_items( $items, $action = 'update' ) {
 		if ( ! is_array( $items ) ) {
 			return array();
+		}
+		if ( in_array( $action, self::PLUGIN_ACTIONS, true ) ) {
+			return self::sanitize_plugin_items( $items, $action );
 		}
 		// Core and translations can be updated but not rolled back.
 		$types = 'rollback' === $action ? array( 'plugin', 'theme' ) : array( 'plugin', 'theme', 'core', 'translations' );
@@ -229,8 +289,48 @@ class Siteherd_Updater {
 	}
 
 	/**
+	 * Items for install/delete/activate/deactivate: plugins only. Installs take a
+	 * wordpress.org slug (plus whether to activate); the others a plugin file.
+	 * This plugin never deactivates or deletes itself.
+	 */
+	private static function sanitize_plugin_items( $items, $action ) {
+		$self  = plugin_basename( SITEHERD_FILE );
+		$clean = array();
+		foreach ( $items as $item ) {
+			if ( ! is_array( $item ) || ! isset( $item['type'], $item['id'] ) || 'plugin' !== $item['type'] || ! is_string( $item['id'] ) ) {
+				continue;
+			}
+			$id = $item['id'];
+			if ( 'install' === $action ) {
+				if ( ! preg_match( '/^[a-z0-9-]{1,100}$/', $id ) ) {
+					continue;
+				}
+				$entry = array(
+					'type'     => 'plugin',
+					'id'       => $id,
+					'activate' => ! empty( $item['activate'] ),
+				);
+			} else {
+				if ( '' === $id || false !== strpos( $id, '..' ) || strlen( $id ) > 200 || '.php' !== substr( $id, -4 ) ) {
+					continue;
+				}
+				if ( $id === $self && 'activate' !== $action ) {
+					continue;
+				}
+				$entry = array(
+					'type' => 'plugin',
+					'id'   => $id,
+				);
+			}
+			$clean[ $id ] = $entry;
+		}
+		return count( $clean ) <= self::MAX_ITEMS ? array_values( $clean ) : array();
+	}
+
+	/**
 	 * Plugins, then themes, then core (so core runs on updated code), then
-	 * translations (a core update can bring new language packs).
+	 * translations (a core update can bring new language packs). This plugin
+	 * goes last among plugins, so the others finish before its files change.
 	 */
 	private static function ordered( $items ) {
 		$rank = array(
@@ -239,10 +339,15 @@ class Siteherd_Updater {
 			'core'         => 2,
 			'translations' => 3,
 		);
+		$self = plugin_basename( SITEHERD_FILE );
 		usort(
 			$items,
-			function ( $a, $b ) use ( $rank ) {
-				return $rank[ $a['type'] ] - $rank[ $b['type'] ];
+			function ( $a, $b ) use ( $rank, $self ) {
+				$by_type = $rank[ $a['type'] ] - $rank[ $b['type'] ];
+				if ( 0 !== $by_type ) {
+					return $by_type;
+				}
+				return (int) ( $a['id'] === $self ) - (int) ( $b['id'] === $self );
 			}
 		);
 		return $items;
@@ -256,6 +361,7 @@ class Siteherd_Updater {
 	private function prepare() {
 		require_once ABSPATH . 'wp-admin/includes/admin.php';
 		require_once ABSPATH . 'wp-admin/includes/class-wp-upgrader.php';
+		require_once ABSPATH . 'wp-admin/includes/plugin-install.php'; // plugins_api(), for installs.
 
 		if ( ! wp_is_file_mod_allowed( 'siteherd_update' ) ) {
 			return new WP_Error( 'siteherd_file_mods', __( 'File changes are disabled on this site (DISALLOW_FILE_MODS), so it can’t be updated remotely.', 'wp-siteherd' ) );
@@ -561,6 +667,168 @@ class Siteherd_Updater {
 		$this->keep( $current, $type, $id, $result['from'] );
 		/* translators: %s: where the old version came from */
 		return self::outcome( $result, 'updated', sprintf( __( 'Restored from %s.', 'wp-siteherd' ), $via ) );
+	}
+
+	/**
+	 * Install a plugin from wordpress.org by slug, optionally activating it.
+	 * The result keeps the slug as id, so the dashboard can match it to the request.
+	 */
+	private function install_item( $slug, $activate, $check_health ) {
+		$result = self::result( 'plugin', $slug );
+		foreach ( get_plugins() as $file => $data ) {
+			if ( dirname( $file ) === $slug || $file === $slug . '.php' ) {
+				$result['name'] = $data['Name'];
+				return self::outcome( $result, 'skipped', __( 'Already installed.', 'wp-siteherd' ) );
+			}
+		}
+
+		$info = plugins_api(
+			'plugin_information',
+			array(
+				'slug'   => $slug,
+				'fields' => array( 'sections' => false ),
+			)
+		);
+		if ( is_wp_error( $info ) ) {
+			/* translators: %s: error message */
+			return self::outcome( $result, 'failed', sprintf( __( 'wordpress.org doesn’t list this plugin: %s', 'wp-siteherd' ), $info->get_error_message() ) );
+		}
+		$result['name'] = wp_strip_all_tags( $info->name );
+		$result['to']   = $info->version;
+
+		$upgrader = new Plugin_Upgrader( new Automatic_Upgrader_Skin() );
+		$outcome  = $upgrader->install( $info->download_link );
+		wp_clean_plugins_cache( false );
+		if ( true !== $outcome ) {
+			return self::outcome( $result, 'failed', self::upgrader_error( $upgrader, $outcome ) );
+		}
+		$file = $upgrader->plugin_info();
+		if ( ! $file ) {
+			return self::outcome( $result, 'failed', __( 'The plugin was downloaded, but its main file couldn’t be found.', 'wp-siteherd' ) );
+		}
+		/* translators: %s: version number */
+		$installed = sprintf( __( 'Installed version %s.', 'wp-siteherd' ), $info->version );
+		if ( ! $activate ) {
+			return self::outcome( $result, 'installed', $installed );
+		}
+
+		$activated = $this->activate_file( $file, $check_health );
+		if ( true !== $activated ) {
+			return self::outcome( $result, $activated['status'], $installed . ' ' . $activated['message'] );
+		}
+		return self::outcome( $result, 'activated', $installed . ' ' . __( 'Activated.', 'wp-siteherd' ) );
+	}
+
+	private function activate_item( $file, $check_health ) {
+		$result  = self::result( 'plugin', $file );
+		$plugins = get_plugins();
+		if ( ! isset( $plugins[ $file ] ) ) {
+			return self::outcome( $result, 'skipped', __( 'Plugin is not installed.', 'wp-siteherd' ) );
+		}
+		$result['name'] = $plugins[ $file ]['Name'];
+		$result['from'] = $plugins[ $file ]['Version'];
+		$result['to']   = $plugins[ $file ]['Version'];
+		if ( is_plugin_active( $file ) ) {
+			return self::outcome( $result, 'skipped', __( 'Already active.', 'wp-siteherd' ) );
+		}
+		$activated = $this->activate_file( $file, $check_health );
+		if ( true !== $activated ) {
+			return self::outcome( $result, $activated['status'], $activated['message'] );
+		}
+		return self::outcome( $result, 'activated' );
+	}
+
+	/**
+	 * Activate a plugin, then load the site. If it no longer loads, deactivate it again.
+	 *
+	 * @return true|array{status: string, message: string}
+	 */
+	private function activate_file( $file, $check_health ) {
+		// Network-only plugins can't be activated on a single site of a network.
+		$network          = is_multisite() && is_network_only_plugin( $file );
+		$this->activating = $file;
+		$activated        = activate_plugin( $file, '', $network );
+		$this->activating = null;
+		// "unexpected_output": the plugin printed something while activating, but it is active.
+		if ( is_wp_error( $activated ) && 'unexpected_output' !== $activated->get_error_code() ) {
+			return array(
+				'status'  => 'failed',
+				/* translators: %s: error message */
+				'message' => sprintf( __( 'Couldn’t activate: %s', 'wp-siteherd' ), wp_strip_all_tags( $activated->get_error_message() ) ),
+			);
+		}
+		if ( $check_health ) {
+			$health = self::check_site();
+			if ( true !== $health ) {
+				deactivate_plugins( $file, true, $network );
+				return array(
+					'status'  => 'rolled_back',
+					/* translators: %s: what failed */
+					'message' => sprintf( __( 'The site stopped loading after activating it (%s), so it was deactivated again.', 'wp-siteherd' ), $health ),
+				);
+			}
+		}
+		return true;
+	}
+
+	private function deactivate_item( $file ) {
+		$result  = self::result( 'plugin', $file );
+		$plugins = get_plugins();
+		if ( ! isset( $plugins[ $file ] ) ) {
+			return self::outcome( $result, 'skipped', __( 'Plugin is not installed.', 'wp-siteherd' ) );
+		}
+		$result['name'] = $plugins[ $file ]['Name'];
+		$result['from'] = $plugins[ $file ]['Version'];
+		$result['to']   = $plugins[ $file ]['Version'];
+		if ( ! is_plugin_active( $file ) ) {
+			return self::outcome( $result, 'skipped', __( 'Already inactive.', 'wp-siteherd' ) );
+		}
+		deactivate_plugins( $file, false, is_multisite() && is_plugin_active_for_network( $file ) );
+		if ( is_plugin_active( $file ) ) {
+			return self::outcome( $result, 'failed', __( 'WordPress didn’t deactivate it.', 'wp-siteherd' ) );
+		}
+		return self::outcome( $result, 'deactivated' );
+	}
+
+	/**
+	 * Deactivate (if needed) and delete a plugin with WordPress's own
+	 * delete_plugins(), which also runs its uninstall routine. A copy of the files
+	 * is kept in siteherd-backups/kept for KEEP_DAYS.
+	 */
+	private function delete_item( $file ) {
+		$result  = self::result( 'plugin', $file );
+		$plugins = get_plugins();
+		if ( ! isset( $plugins[ $file ] ) ) {
+			return self::outcome( $result, 'skipped', __( 'Plugin is not installed.', 'wp-siteherd' ) );
+		}
+		$result['name'] = $plugins[ $file ]['Name'];
+		$result['from'] = $plugins[ $file ]['Version'];
+
+		$source = false === strpos( $file, '/' ) ? WP_PLUGIN_DIR . '/' . $file : WP_PLUGIN_DIR . '/' . dirname( $file );
+		$backup = $this->backup( $source, 'delete-' . sanitize_file_name( dirname( $file ) === '.' ? $file : dirname( $file ) ) );
+		if ( is_wp_error( $backup ) ) {
+			return self::outcome( $result, 'failed', $backup->get_error_message() );
+		}
+
+		$network = is_multisite() && is_plugin_active_for_network( $file );
+		if ( is_plugin_active( $file ) ) {
+			deactivate_plugins( $file, false, $network );
+		}
+		$deleted = delete_plugins( array( $file ) );
+		wp_clean_plugins_cache( false );
+		if ( true !== $deleted ) {
+			$message = is_wp_error( $deleted ) ? $deleted->get_error_message() : __( 'WordPress couldn’t delete the plugin files.', 'wp-siteherd' );
+			// Put back anything that was removed before the failure.
+			if ( ! file_exists( WP_PLUGIN_DIR . '/' . $file ) ) {
+				$this->restore( $backup, $source );
+			}
+			$this->discard( $backup );
+			return self::outcome( $result, 'failed', wp_strip_all_tags( $message ) );
+		}
+
+		$this->keep( $backup, 'plugin', $file, $result['from'] );
+		/* translators: %d: number of days */
+		return self::outcome( $result, 'deleted', sprintf( __( 'A copy is kept in wp-content/siteherd-backups for %d days.', 'wp-siteherd' ), self::KEEP_DAYS ) );
 	}
 
 	/**

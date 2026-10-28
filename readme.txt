@@ -4,7 +4,7 @@ Tags: monitoring, updates, security, agency, maintenance
 Requires at least: 6.0
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 0.5.0
+Stable tag: 0.7.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -46,6 +46,13 @@ From the dashboard you can update plugins, themes and WordPress core, one at a t
 After a successful plugin or theme update, the copy of the version it replaced is kept in wp-content/siteherd-backups/kept/ for 30 days (one per plugin/theme). From the dashboard you can roll back to that copy. If there's no saved copy, plugins and themes from wordpress.org can be rolled back to an earlier version downloaded from wordpress.org. The current version is backed up first, and restored if the site stops loading after the rollback.
 
 == Changelog ==
+
+= 0.7.0 =
+* Install plugins from wordpress.org, and activate, deactivate or delete plugins, from the dashboard (report schema 6). Activating is health-checked: if the site stops loading, the plugin is deactivated again. Deleting keeps a copy of the files for 30 days.
+* Updates for WP Siteherd itself from GitHub releases, shown in wp-admin and in the dashboard like any other plugin update.
+
+= 0.6.0 =
+* Resync from the dashboard, and translation (language pack) updates (report schema 5 adds `translations` and `site_icon`).
 
 = 0.5.0 =
 * Rollback for plugins and themes: from the copy saved at the last update, or from wordpress.org (report schema 4 adds `rollbacks`).

@@ -130,6 +130,7 @@ class Siteherd_Reporter {
 			return;
 		}
 		set_transient( 'siteherd_forced_check', 1, MINUTE_IN_SECONDS );
+		Siteherd_Self_Update::clear_cache();
 		foreach ( array( 'update_plugins', 'update_themes', 'update_core' ) as $name ) {
 			$cache = get_site_transient( $name );
 			if ( is_object( $cache ) ) {

@@ -29,6 +29,7 @@ class Siteherd {
 		require_once $dir . 'class-siteherd-checks.php';
 		require_once $dir . 'class-siteherd-sso.php';
 		require_once $dir . 'class-siteherd-updater.php';
+		require_once $dir . 'class-siteherd-self-update.php';
 		require_once $dir . 'class-siteherd-rest.php';
 		require_once SITEHERD_DIR . 'admin/class-siteherd-admin.php';
 	}
@@ -56,6 +57,11 @@ class Siteherd {
 
 		$updater = new Siteherd_Updater( $reporter );
 		$this->loader->add_action( Siteherd_Updater::CRON_HOOK, $updater, 'run' );
+
+		// Updates for this plugin itself, from GitHub releases.
+		$self_update = new Siteherd_Self_Update();
+		$this->loader->add_filter( 'pre_set_site_transient_update_plugins', $self_update, 'add_update' );
+		$this->loader->add_filter( 'plugins_api', $self_update, 'plugin_info', 10, 3 );
 
 		$rest = new Siteherd_Rest( $updater, $reporter );
 		$this->loader->add_action( 'rest_api_init', $rest, 'register_routes' );

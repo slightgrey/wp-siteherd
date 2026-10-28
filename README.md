@@ -1,6 +1,6 @@
 # WP Siteherd: WordPress plugin
 
-The companion plugin for the **[WP Siteherd dashboard](https://github.com/slightgrey/siteherd-app)**. Install it on each client site and paste the site's connection key. From then on, the site reports its versions, pending updates, Site Health, file integrity and failed logins, and it can be updated, rolled back and logged in to from the dashboard.
+The companion plugin for the **[WP Siteherd dashboard](https://github.com/slightgrey/siteherd-app)**. Install it on each client site and paste the site's connection key. From then on, the site reports its versions, pending updates, Site Health, file integrity and failed logins, and it can be updated, rolled back, have plugins installed or removed, and be logged in to from the dashboard. The dashboard matches what the site reports against a vulnerability database, so no scanning runs on the site itself.
 
 ![Settings page](docs/screenshots/settings.png)
 
@@ -12,7 +12,7 @@ The companion plugin for the **[WP Siteherd dashboard](https://github.com/slight
 
 ## Installation
 
-1. Copy this folder to `wp-content/plugins/wp-siteherd` (or upload it as a zip) and activate it.
+1. Download `wp-siteherd.zip` from the [latest release](https://github.com/slightgrey/wp-siteherd/releases/latest), then upload it in **Plugins → Add New → Upload Plugin** and activate it.
 2. In the dashboard, add the site and copy its **connection key**.
 3. In WordPress, go to **Settings → WP Siteherd**, paste the key and save.
 
@@ -38,8 +38,17 @@ All of these are triggered from the dashboard and require a correctly signed req
 
 - **Updates:** plugins, themes, core and translations, run in the background with WordPress's own upgraders. Each plugin and theme is backed up first. After updating, the home page and login page are loaded, and a fatal error or HTTP 5xx restores the backup automatically.
 - **Rollback:** restore the version kept from the last update (kept for 30 days), or install an earlier release from wordpress.org.
+- **Install plugins** from wordpress.org, optionally activating them.
+- **Activate / deactivate plugins.** After activating, the site is loaded again; if it stops loading, the plugin is deactivated again. A PHP fatal error during activation is caught and reported.
+- **Delete plugins** with WordPress's own deletion (which runs the plugin's uninstall routine). The plugin is deactivated first, and a copy of its files is kept in `wp-content/siteherd-backups` for 30 days. WP Siteherd never deactivates or deletes itself.
 - **Resync:** refresh WordPress's update information and send a report immediately.
 - **One-click login:** a signed, single-use link (valid 2 minutes) logs an administrator into wp-admin. It can be turned off, or limited to one administrator, on the settings page. The last 20 logins are listed there.
+
+## Updates
+
+WP Siteherd isn't in the wordpress.org directory, so it updates itself from this repository's [GitHub releases](https://github.com/slightgrey/wp-siteherd/releases). New releases appear in **Dashboard → Updates**, work with WordPress auto-updates, and show up in the WP Siteherd dashboard like any other plugin update. The release check is cached for 12 hours.
+
+Development copies (a checkout with `composer.json`) never update themselves. You can also turn updates off with `define( 'SITEHERD_DISABLE_SELF_UPDATE', true );` in `wp-config.php`.
 
 ## Security
 
@@ -68,11 +77,14 @@ vendor/bin/phpunit --filter test_name      # a single test
 php -l includes/class-siteherd.php         # syntax check
 ```
 
+To publish a release: bump the version in `wp-siteherd.php` (header and `SITEHERD_VERSION`) and `readme.txt`, commit, run `bin/build-zip.sh`, and attach the resulting `wp-siteherd.zip` to a GitHub release tagged `v<version>`. The zip leaves out tests and Composer files (`.gitattributes`).
+
 The code stays compatible with PHP 7.4. `Siteherd_Signer` (`includes/class-siteherd-signer.php`) is plain PHP so it can be unit-tested. It shares its test vectors with the dashboard's signing code.
 
 ```
 wp-siteherd.php        bootstrap
-includes/              core classes: collector, reporter, signer, updater, checks, SSO, REST API
+includes/              core classes: collector, reporter, signer, updater, checks, SSO, REST API, self-update
+bin/build-zip.sh       builds the release zip
 admin/                 settings page and styles
 tests/                 PHPUnit tests
 ```
