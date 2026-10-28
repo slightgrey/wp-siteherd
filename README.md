@@ -12,7 +12,7 @@ The companion plugin for the **[WP Siteherd dashboard](https://github.com/slight
 
 ## Installation
 
-1. Download `wp-siteherd.zip` from the [latest release](https://github.com/slightgrey/wp-siteherd/releases/latest), then upload it in **Plugins → Add New → Upload Plugin** and activate it.
+1. Download `wp-siteherd-<version>.zip` from the [latest release](https://github.com/slightgrey/wp-siteherd/releases/latest), then upload it in **Plugins → Add New → Upload Plugin** and activate it.
 2. In the dashboard, add the site and copy its **connection key**.
 3. In WordPress, go to **Settings → WP Siteherd**, paste the key and save.
 
@@ -77,14 +77,24 @@ vendor/bin/phpunit --filter test_name      # a single test
 php -l includes/class-siteherd.php         # syntax check
 ```
 
-To publish a release: bump the version in `wp-siteherd.php` (header and `SITEHERD_VERSION`) and `readme.txt`, commit, run `bin/build-zip.sh`, and attach the resulting `wp-siteherd.zip` to a GitHub release tagged `v<version>`. The zip leaves out tests and Composer files (`.gitattributes`).
+### Versions and releases
+
+```bash
+npm install                 # once: installs the zip tool
+npm run version:patch       # 0.7.0 → 0.7.1 (or version:minor / version:major)
+npm run bundle              # → dist/wp-siteherd-0.7.1.zip
+```
+
+`version:*` updates the version in `package.json`, the plugin header, `SITEHERD_VERSION` and `readme.txt` (Stable tag), and adds an empty changelog entry to `readme.txt` for you to fill in. `bundle` packs the plugin into a `wp-siteherd/` folder, leaves out development files (tests, Composer, npm, docs), and stops if the versions don't match.
+
+To release, commit and push, then create a GitHub release tagged `v<version>` and attach the zip from `dist/`. Sites pick it up within 12 hours.
 
 The code stays compatible with PHP 7.4. `Siteherd_Signer` (`includes/class-siteherd-signer.php`) is plain PHP so it can be unit-tested. It shares its test vectors with the dashboard's signing code.
 
 ```
 wp-siteherd.php        bootstrap
 includes/              core classes: collector, reporter, signer, updater, checks, SSO, REST API, self-update
-bin/build-zip.sh       builds the release zip
+scripts/               npm run bundle / version:* (release zip and version bumps)
 admin/                 settings page and styles
 tests/                 PHPUnit tests
 ```

@@ -3,8 +3,8 @@
  * Updates for WP Siteherd itself, from GitHub releases.
  *
  * The plugin isn't on wordpress.org, so WordPress never offers updates for it.
- * This adds the latest GitHub release (tag "v1.2.3" with a "wp-siteherd.zip"
- * asset) to WordPress's plugin update data. From there it shows up like any
+ * This adds the latest GitHub release (tag "v1.2.3" with a "wp-siteherd-1.2.3.zip"
+ * asset, built by npm run bundle) to WordPress's plugin update data. From there it shows up like any
  * other update: in wp-admin, in auto-updates, and in the dashboard's reports.
  *
  * Development copies (with composer.json, which release zips leave out) are
@@ -17,7 +17,8 @@ class Siteherd_Self_Update {
 
 	const RELEASE_URL = 'https://api.github.com/repos/slightgrey/wp-siteherd/releases/latest';
 	const REPO_URL    = 'https://github.com/slightgrey/wp-siteherd';
-	const ASSET_NAME  = 'wp-siteherd.zip';
+	// Release asset: wp-siteherd-1.2.3.zip (npm run bundle), or plain wp-siteherd.zip.
+	const ASSET_PATTERN = '/^wp-siteherd(-[0-9.]+)?\.zip$/';
 	const CACHE_KEY   = 'siteherd_latest_release';
 	const SLUG        = 'wp-siteherd';
 
@@ -110,7 +111,7 @@ class Siteherd_Self_Update {
 			$version = is_array( $data ) && isset( $data['tag_name'] ) ? ltrim( (string) $data['tag_name'], 'vV' ) : '';
 			$package = '';
 			foreach ( isset( $data['assets'] ) && is_array( $data['assets'] ) ? $data['assets'] : array() as $asset ) {
-				if ( isset( $asset['name'], $asset['browser_download_url'] ) && self::ASSET_NAME === $asset['name'] ) {
+				if ( isset( $asset['name'], $asset['browser_download_url'] ) && preg_match( self::ASSET_PATTERN, (string) $asset['name'] ) ) {
 					$package = (string) $asset['browser_download_url'];
 				}
 			}
