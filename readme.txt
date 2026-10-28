@@ -4,7 +4,7 @@ Tags: monitoring, updates, security, agency, maintenance
 Requires at least: 6.0
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 0.7.1
+Stable tag: 0.7.2
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -46,6 +46,9 @@ From the dashboard you can update plugins, themes and WordPress core, one at a t
 After a successful plugin or theme update, the copy of the version it replaced is kept in wp-content/siteherd-backups/kept/ for 30 days (one per plugin/theme). From the dashboard you can roll back to that copy. If there's no saved copy, plugins and themes from wordpress.org can be rolled back to an earlier version downloaded from wordpress.org. The current version is backed up first, and restored if the site stops loading after the rollback.
 
 == Changelog ==
+
+= 0.7.2 =
+* Fix: right after WP Siteherd updated itself, WordPress kept offering the same update and the dashboard showed the old version. The update check and reports now read the installed version from the plugin file, not the version loaded in memory.
 
 = 0.7.1 =
 * One-click login skips two-factor plugins (Solid/Kadence Security, Two Factor, WP 2FA and others that interrupt logins on `wp_login`). On by default; turn it off under Settings → WP Siteherd → One-click login. Password logins still ask for the code. One-click logins fire `siteherd_sso_login` instead of `wp_login` while skipping.

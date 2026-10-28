@@ -25,7 +25,8 @@ class Siteherd_Collector {
 
 		return array(
 			'schema'            => self::SCHEMA,
-			'plugin_version'    => SITEHERD_VERSION,
+			// From the file on disk, so the report sent right after a self-update shows the new version.
+			'plugin_version'    => Siteherd_Self_Update::installed_version(),
 			'site_url'          => home_url(),
 			'site_icon'         => get_site_icon_url( 64 ) ?: null,
 			'wp_version'        => get_bloginfo( 'version' ),

@@ -27,6 +27,16 @@ class Siteherd_Self_Update {
 	}
 
 	/**
+	 * The version installed on disk. Right after an update, the request that ran
+	 * it still has the old code (and old SITEHERD_VERSION) loaded, but the files
+	 * are already new. Comparing with the constant would offer the update again.
+	 */
+	public static function installed_version() {
+		$data = get_file_data( SITEHERD_FILE, array( 'Version' => 'Version' ) );
+		return ! empty( $data['Version'] ) ? $data['Version'] : SITEHERD_VERSION;
+	}
+
+	/**
 	 * Filter for pre_set_site_transient_update_plugins: add our update (or "no update").
 	 *
 	 * @param object|false $transient WordPress's plugin update data.
@@ -51,7 +61,7 @@ class Siteherd_Self_Update {
 			'icons'        => array(),
 			'banners'      => array(),
 		);
-		if ( version_compare( $release['version'], SITEHERD_VERSION, '>' ) ) {
+		if ( version_compare( $release['version'], self::installed_version(), '>' ) ) {
 			$transient->response[ $file ] = $offer;
 			unset( $transient->no_update[ $file ] );
 		} else {
