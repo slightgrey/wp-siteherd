@@ -29,10 +29,12 @@ class Siteherd_Updater {
 	const BACKUP_DIR  = 'siteherd-backups';
 	// How long the copy of a replaced version is kept for rollback.
 	const KEEP_DAYS   = 30;
-	// A job with no sign of life for this long is assumed dead (e.g. PHP was
+	// A job with no sign of life for this long (5 min) is assumed dead (e.g. PHP was
 	// killed, as LiteSpeed does with background requests), so a new one may start.
 	// Running jobs refresh a heartbeat at each item and on upgrader progress.
-	const STALE_AFTER = 600;
+	const STALE_AFTER = 300;
+	// The dashboard may release a job's lock once it has been quiet this long.
+	const RELEASE_AFTER = 60;
 	const ACTIONS     = array( 'update', 'rollback', 'install', 'delete', 'activate', 'deactivate' );
 	// Actions that manage plugins rather than change versions.
 	const PLUGIN_ACTIONS = array( 'install', 'delete', 'activate', 'deactivate' );
@@ -255,12 +257,40 @@ class Siteherd_Updater {
 	}
 
 	private static function is_stale( $job ) {
+		return self::quiet_for( $job ) > self::STALE_AFTER;
+	}
+
+	/** Seconds since the job last showed any sign of life. */
+	private static function quiet_for( $job ) {
 		$since = max(
 			isset( $job['heartbeat'] ) ? (int) $job['heartbeat'] : 0,
 			isset( $job['started_at'] ) ? (int) $job['started_at'] : 0,
 			isset( $job['queued_at'] ) ? (int) $job['queued_at'] : 0
 		);
-		return time() - $since > self::STALE_AFTER;
+		return time() - $since;
+	}
+
+	/**
+	 * REST callback: POST /siteherd/v1/update/release with {job_id}. The
+	 * dashboard sends this when the site's report shows a job's work done but
+	 * the job never sent its final result (the host ended the request). Drops
+	 * the lock so the next job can start, but only for that job and only once
+	 * it has been quiet for RELEASE_AFTER seconds, so a live job is never cut off.
+	 */
+	public function release( WP_REST_Request $request ) {
+		$data   = json_decode( $request->get_body(), true );
+		$job_id = is_array( $data ) && isset( $data['job_id'] ) && is_string( $data['job_id'] ) ? $data['job_id'] : '';
+		$job    = self::current_job();
+		if ( ! $job || $job['id'] !== $job_id ) {
+			return new WP_REST_Response( array( 'released' => false, 'reason' => 'not_current' ), 200 );
+		}
+		if ( self::quiet_for( $job ) < self::RELEASE_AFTER ) {
+			return new WP_REST_Response( array( 'released' => false, 'reason' => 'alive' ), 409 );
+		}
+		delete_option( self::JOB_OPTION );
+		delete_option( 'siteherd_update_claim_' . $job['id'] );
+		wp_clear_scheduled_hook( self::CRON_HOOK, array( $job['id'] ) );
+		return new WP_REST_Response( array( 'released' => true ), 200 );
 	}
 
 	/**

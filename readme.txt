@@ -48,7 +48,8 @@ After a successful plugin or theme update, the copy of the version it replaced i
 == Changelog ==
 
 = 0.7.3 =
-* Remote jobs keep a heartbeat while they work. If the host ends the background request early (LiteSpeed does), the site accepts new jobs again after 10 minutes without a heartbeat instead of 30 minutes after the job started.
+* Remote jobs keep a heartbeat while they work. If the host ends the background request early (LiteSpeed does), the site accepts new jobs again after 5 minutes without a heartbeat instead of 30 minutes after the job started.
+* New signed endpoint `POST /siteherd/v1/update/release`: when the dashboard confirms a cut-off job from the site's report, it releases the job lock right away (only for that job, and only after a minute without a heartbeat).
 
 = 0.7.2 =
 * Fix: right after WP Siteherd updated itself, WordPress kept offering the same update and the dashboard showed the old version. The update check and reports now read the installed version from the plugin file, not the version loaded in memory.

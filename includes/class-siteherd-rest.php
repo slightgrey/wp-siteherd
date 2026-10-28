@@ -50,6 +50,16 @@ class Siteherd_Rest {
 				'permission_callback' => array( $this, 'verify_request' ),
 			)
 		);
+		// The dashboard confirmed a job's results from a report: drop the job lock (0.7.3+).
+		register_rest_route(
+			self::NAMESPACE_V1,
+			'/update/release',
+			array(
+				'methods'             => WP_REST_Server::CREATABLE,
+				'callback'            => array( $this->updater, 'release' ),
+				'permission_callback' => array( $this, 'verify_request' ),
+			)
+		);
 		// Loopback from this site to itself to start a queued job (see Siteherd_Updater::queue).
 		register_rest_route(
 			self::NAMESPACE_V1,
