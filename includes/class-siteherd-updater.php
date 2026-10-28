@@ -29,8 +29,10 @@ class Siteherd_Updater {
 	const BACKUP_DIR  = 'siteherd-backups';
 	// How long the copy of a replaced version is kept for rollback.
 	const KEEP_DAYS   = 30;
-	// A job still unfinished after this long is assumed dead (e.g. PHP was killed).
-	const STALE_AFTER = 1800;
+	// A job with no sign of life for this long is assumed dead (e.g. PHP was
+	// killed, as LiteSpeed does with background requests), so a new one may start.
+	// Running jobs refresh a heartbeat at each item and on upgrader progress.
+	const STALE_AFTER = 600;
 	const ACTIONS     = array( 'update', 'rollback', 'install', 'delete', 'activate', 'deactivate' );
 	// Actions that manage plugins rather than change versions.
 	const PLUGIN_ACTIONS = array( 'install', 'delete', 'activate', 'deactivate' );
@@ -148,7 +150,17 @@ class Siteherd_Updater {
 		wp_clear_scheduled_hook( self::CRON_HOOK, array( $job_id ) );
 		$job['status']     = 'running';
 		$job['started_at'] = time();
+		$job['heartbeat']  = time();
 		update_option( self::JOB_OPTION, $job, false );
+
+		// Keep the heartbeat fresh during long steps (downloads, unpacking, core updates).
+		$beat = function ( $value = null ) use ( $job_id ) {
+			self::heartbeat( $job_id );
+			return $value;
+		};
+		add_filter( 'upgrader_pre_download', $beat );
+		add_filter( 'upgrader_pre_install', $beat );
+		add_filter( 'update_feedback', $beat );
 
 		ignore_user_abort( true );
 		if ( function_exists( 'set_time_limit' ) ) {
@@ -181,6 +193,7 @@ class Siteherd_Updater {
 		}
 		foreach ( self::ordered( $job['items'] ) as $item ) {
 			$this->in_progress = $item;
+			self::heartbeat( $job_id );
 			if ( 'rollback' === $action ) {
 				$results[] = $this->rollback_item( $item, $check_health );
 			} elseif ( 'install' === $action ) {
@@ -242,8 +255,28 @@ class Siteherd_Updater {
 	}
 
 	private static function is_stale( $job ) {
-		$since = isset( $job['started_at'] ) ? $job['started_at'] : ( isset( $job['queued_at'] ) ? $job['queued_at'] : 0 );
-		return time() - (int) $since > self::STALE_AFTER;
+		$since = max(
+			isset( $job['heartbeat'] ) ? (int) $job['heartbeat'] : 0,
+			isset( $job['started_at'] ) ? (int) $job['started_at'] : 0,
+			isset( $job['queued_at'] ) ? (int) $job['queued_at'] : 0
+		);
+		return time() - $since > self::STALE_AFTER;
+	}
+
+	/**
+	 * Record that the running job is still alive. At most every 15 seconds, so
+	 * chatty upgrader feedback doesn't write the option over and over.
+	 */
+	private static function heartbeat( $job_id ) {
+		$job = self::current_job();
+		if ( ! $job || $job['id'] !== $job_id || 'running' !== $job['status'] ) {
+			return;
+		}
+		if ( isset( $job['heartbeat'] ) && time() - (int) $job['heartbeat'] < 15 ) {
+			return;
+		}
+		$job['heartbeat'] = time();
+		update_option( self::JOB_OPTION, $job, false );
 	}
 
 	private static function sanitize_items( $items, $action = 'update' ) {
