@@ -8,7 +8,7 @@
  * @var int|false  $next_run   Unix time of the next automatic report, or false.
  * @var bool       $overdue    WP-Cron hasn't run the scheduled report in time.
  * @var int|null   $checks_at  Unix time of the last daily checks run.
- * @var array      $sso        One-click login: enabled, user_id, admins, recent.
+ * @var array      $sso        One-click login: enabled, skip_2fa, user_id, admins, recent.
  * @var array|null $last       Last report result (time, code, error) or null.
  * @var array|null $notice     One-time notice (type, message) or null.
  */
@@ -256,6 +256,17 @@ $siteherd_notice_icon = array(
 							</span>
 							<span class="sh-toggle">
 								<input type="checkbox" name="siteherd_sso_enabled" value="1" <?php checked( $sso['enabled'] ); ?>>
+								<span class="sh-toggle__track"><span class="sh-toggle__thumb"></span></span>
+							</span>
+						</label>
+
+						<label class="sh-switch-row">
+							<span>
+								<strong><?php esc_html_e( 'Skip two-factor', 'wp-siteherd' ); ?></strong>
+								<span class="sh-help"><?php esc_html_e( 'One-click logins don’t ask for a 2FA code (e.g. Solid/Kadence Security, Two Factor). Password logins still do.', 'wp-siteherd' ); ?></span>
+							</span>
+							<span class="sh-toggle">
+								<input type="checkbox" name="siteherd_sso_skip_2fa" value="1" <?php checked( $sso['skip_2fa'] ); ?>>
 								<span class="sh-toggle__track"><span class="sh-toggle__thumb"></span></span>
 							</span>
 						</label>

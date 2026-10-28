@@ -20,6 +20,7 @@ $siteherd_options = array(
 	'siteherd_sso_enabled',
 	'siteherd_sso_user',
 	'siteherd_sso_log',
+	'siteherd_sso_skip_2fa',
 	'siteherd_update_job',
 );
 foreach ( $siteherd_options as $option ) {

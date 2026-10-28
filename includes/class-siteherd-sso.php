@@ -15,11 +15,21 @@ class Siteherd_Sso {
 	const OPTION_ENABLED = 'siteherd_sso_enabled';
 	const OPTION_USER    = 'siteherd_sso_user';
 	const OPTION_LOG     = 'siteherd_sso_log';
+	const OPTION_SKIP_2FA = 'siteherd_sso_skip_2fa';
 	const LOG_SIZE       = 20;
 
 	public static function is_enabled() {
 		// Missing option means the default: on.
 		return '0' !== get_option( self::OPTION_ENABLED, '1' );
+	}
+
+	/**
+	 * Whether one-click logins skip two-factor plugins (default: yes). The
+	 * dashboard login, plus the signed single-use token, stands in for the
+	 * second factor. Logins with a password on wp-login.php are unaffected.
+	 */
+	public static function skips_two_factor() {
+		return '0' !== get_option( self::OPTION_SKIP_2FA, '1' );
 	}
 
 	/**
@@ -93,8 +103,15 @@ class Siteherd_Sso {
 
 		wp_set_current_user( $user->ID );
 		wp_set_auth_cookie( $user->ID, false, is_ssl() );
-		// Same action a normal login fires, so security/audit plugins see it.
-		do_action( 'wp_login', $user->user_login, $user );
+		if ( self::skips_two_factor() ) {
+			// Two-factor plugins (Solid/Kadence Security, Two Factor, WP 2FA, ...)
+			// interrupt logins from the wp_login action, so it isn't fired here.
+			// Audit plugins can listen for this instead.
+			do_action( 'siteherd_sso_login', $user );
+		} else {
+			// Same action a normal login fires, so security/audit plugins (and 2FA) see it.
+			do_action( 'wp_login', $user->user_login, $user );
+		}
 
 		$log = self::recent_logins();
 		array_unshift(

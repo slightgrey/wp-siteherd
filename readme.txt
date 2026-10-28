@@ -4,7 +4,7 @@ Tags: monitoring, updates, security, agency, maintenance
 Requires at least: 6.0
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 0.7.0
+Stable tag: 0.7.1
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -46,6 +46,10 @@ From the dashboard you can update plugins, themes and WordPress core, one at a t
 After a successful plugin or theme update, the copy of the version it replaced is kept in wp-content/siteherd-backups/kept/ for 30 days (one per plugin/theme). From the dashboard you can roll back to that copy. If there's no saved copy, plugins and themes from wordpress.org can be rolled back to an earlier version downloaded from wordpress.org. The current version is backed up first, and restored if the site stops loading after the rollback.
 
 == Changelog ==
+
+= 0.7.1 =
+* One-click login skips two-factor plugins (Solid/Kadence Security, Two Factor, WP 2FA and others that interrupt logins on `wp_login`). On by default; turn it off under Settings → WP Siteherd → One-click login. Password logins still ask for the code. One-click logins fire `siteherd_sso_login` instead of `wp_login` while skipping.
+* The dashboard now sends a User-Agent when calling the site, so host firewalls that block requests without one no longer answer 403.
 
 = 0.7.0 =
 * Install plugins from wordpress.org, and activate, deactivate or delete plugins, from the dashboard (report schema 6). Activating is health-checked: if the site stops loading, the plugin is deactivated again. Deleting keeps a copy of the files for 30 days.

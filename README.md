@@ -42,7 +42,7 @@ All of these are triggered from the dashboard and require a correctly signed req
 - **Activate / deactivate plugins.** After activating, the site is loaded again; if it stops loading, the plugin is deactivated again. A PHP fatal error during activation is caught and reported.
 - **Delete plugins** with WordPress's own deletion (which runs the plugin's uninstall routine). The plugin is deactivated first, and a copy of its files is kept in `wp-content/siteherd-backups` for 30 days. WP Siteherd never deactivates or deletes itself.
 - **Resync:** refresh WordPress's update information and send a report immediately.
-- **One-click login:** a signed, single-use link (valid 2 minutes) logs an administrator into wp-admin. It can be turned off, or limited to one administrator, on the settings page. The last 20 logins are listed there.
+- **One-click login:** a signed, single-use link (valid 2 minutes) logs an administrator into wp-admin. It can be turned off, or limited to one administrator, on the settings page. The last 20 logins are listed there. By default it skips two-factor plugins (Solid/Kadence Security, Two Factor, WP 2FA and similar), since the dashboard login and the signed token stand in for the second factor; switch **Skip two-factor** off to require the code. Logins with a password on wp-login.php always ask for it.
 
 ## Updates
 

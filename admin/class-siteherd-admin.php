@@ -65,7 +65,8 @@ class Siteherd_Admin {
 		$overdue    = $connection && Siteherd_Reporter::is_overdue();
 		$checks_at  = Siteherd_Checks::last_run();
 		$sso        = array(
-			'enabled' => Siteherd_Sso::is_enabled(),
+			'enabled'  => Siteherd_Sso::is_enabled(),
+			'skip_2fa' => Siteherd_Sso::skips_two_factor(),
 			'user_id' => Siteherd_Sso::fixed_user_id(),
 			'admins'  => Siteherd_Sso::admins(),
 			'recent'  => array_slice( Siteherd_Sso::recent_logins(), 0, 5 ),
@@ -126,6 +127,7 @@ class Siteherd_Admin {
 		}
 
 		update_option( Siteherd_Sso::OPTION_ENABLED, isset( $_POST['siteherd_sso_enabled'] ) ? '1' : '0', false );
+		update_option( Siteherd_Sso::OPTION_SKIP_2FA, isset( $_POST['siteherd_sso_skip_2fa'] ) ? '1' : '0', false );
 		update_option( Siteherd_Sso::OPTION_USER, $user_id, false );
 		// Tell the dashboard right away, so its WP Admin button matches.
 		if ( Siteherd_Connection::get() ) {
