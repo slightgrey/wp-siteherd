@@ -4,7 +4,7 @@ Tags: monitoring, updates, security, agency, maintenance
 Requires at least: 6.0
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 0.11.1
+Stable tag: 0.11.2
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -46,6 +46,9 @@ From the dashboard you can update plugins, themes and WordPress core, one at a t
 After a successful plugin or theme update, the copy of the version it replaced is kept in wp-content/siteherd-backups/kept/ for 30 days (one per plugin/theme). From the dashboard you can roll back to that copy. If there's no saved copy, plugins and themes from wordpress.org can be rolled back to an earlier version downloaded from wordpress.org. The current version is backed up first, and restored if the site stops loading after the rollback.
 
 == Changelog ==
+
+= 0.11.2 =
+* "Visit plugin site" in the Plugins list now opens the plugin's GitHub page.
 
 = 0.11.1 =
 * White label: with an agency name set in the dashboard, Plugins → Installed plugins also lists this plugin as "{Agency} WordPress Manager". Updates and reports still identify it as WP Siteherd.
