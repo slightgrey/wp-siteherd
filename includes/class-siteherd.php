@@ -91,6 +91,7 @@ class Siteherd {
 			$this->loader->add_action( 'admin_post_siteherd_save_hardening', $admin, 'handle_save_hardening' );
 			$this->loader->add_action( 'admin_post_siteherd_unlock_all', $admin, 'handle_unlock_all' );
 			$this->loader->add_filter( 'plugin_action_links_' . plugin_basename( SITEHERD_FILE ), $admin, 'add_settings_link' );
+			$this->loader->add_filter( 'all_plugins', $admin, 'brand_plugin_list' );
 		}
 	}
 

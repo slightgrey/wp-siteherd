@@ -45,6 +45,23 @@ class Siteherd_Admin {
 		wp_enqueue_style( 'wp-siteherd-admin', plugins_url( 'admin/css/siteherd-admin.css', SITEHERD_FILE ), array(), SITEHERD_VERSION );
 	}
 
+	/**
+	 * White label in Plugins → Installed plugins: show the agency's label as the
+	 * name. Only the list's display; get_plugins() (what reports and updates
+	 * read) keeps the real header.
+	 *
+	 * @param array $plugins Plugin data keyed by plugin file.
+	 * @return array
+	 */
+	public function brand_plugin_list( $plugins ) {
+		$file = plugin_basename( SITEHERD_FILE );
+		if ( isset( $plugins[ $file ] ) && Siteherd_Branding::agency() ) {
+			$plugins[ $file ]['Name']  = Siteherd_Branding::label();
+			$plugins[ $file ]['Title'] = Siteherd_Branding::label();
+		}
+		return $plugins;
+	}
+
 	public function add_settings_link( $links ) {
 		array_unshift(
 			$links,

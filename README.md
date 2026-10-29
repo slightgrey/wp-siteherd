@@ -43,7 +43,7 @@ All of these are triggered from the dashboard and require a correctly signed req
 - **Delete plugins** with WordPress's own deletion (which runs the plugin's uninstall routine). The plugin is deactivated first, and a copy of its files is kept in `wp-content/siteherd-backups` for 30 days. WP Siteherd never deactivates or deletes itself.
 - **Resync:** refresh WordPress's update information and send a report immediately.
 - **One-click login:** a signed, single-use link (valid 2 minutes) logs an administrator into wp-admin. It can be turned off, or limited to one administrator, on the settings page. The last 20 logins are listed there. By default it skips two-factor plugins (Solid/Kadence Security, Two Factor, WP 2FA and similar), since the dashboard login and the signed token stand in for the second factor; switch **Skip two-factor** off to require the code. Logins with a password on wp-login.php always ask for it.
-- **White label:** when the dashboard has an agency name set (Settings → White label), the Settings menu item and this plugin's page read "{Agency} WordPress Manager" instead of WP Siteherd. The name arrives with the dashboard's signed answer to each report. Clearing it, or disconnecting, goes back to WP Siteherd. The Plugins list always shows WP Siteherd.
+- **White label:** when the dashboard has an agency name set (Settings → White label), the Settings menu item and this plugin's page read "{Agency} WordPress Manager" instead of WP Siteherd. The name arrives with the dashboard's signed answer to each report. It also replaces the name in the Plugins list (display only: updates and reports still identify the plugin as WP Siteherd). Clearing it, or disconnecting, goes back to WP Siteherd.
 
 ## Updates
 
