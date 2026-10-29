@@ -15,7 +15,12 @@ class Siteherd_Collector {
 	// 5: adds `translations` (pending language pack updates) and accepts "translations" update items,
 	//    and `site_icon` (the Site Icon URL from Settings → General, or null).
 	// 6: no new fields; accepts the install / delete / activate / deactivate job actions (plugin 0.7.0).
-	const SCHEMA = 6;
+	// 7: adds `failed_logins_by_source` (login / xmlrpc / rest / other counts for the last 24 hours).
+	// 8: adds `failed_logins_hourly` (per-hour counts by source) and `hardening` ({xmlrpc_off}),
+	//    and accepts POST /settings (plugin 0.9.0).
+	// 9: adds `lockout` (login lockout settings and 24 h counts) and accepts lockout settings
+	//    and `unlock_all` in POST /settings (plugin 0.10.0).
+	const SCHEMA = 9;
 
 	/**
 	 * @return array<string, mixed>
@@ -24,26 +29,30 @@ class Siteherd_Collector {
 		global $wpdb;
 
 		return array(
-			'schema'            => self::SCHEMA,
+			'schema'                  => self::SCHEMA,
 			// From the file on disk, so the report sent right after a self-update shows the new version.
-			'plugin_version'    => Siteherd_Self_Update::installed_version(),
-			'site_url'          => home_url(),
-			'site_icon'         => get_site_icon_url( 64 ) ?: null,
-			'wp_version'        => get_bloginfo( 'version' ),
-			'php_version'       => PHP_VERSION,
-			'db_version'        => $wpdb->db_version(),
-			'is_multisite'      => is_multisite(),
-			'locale'            => get_locale(),
-			'core_update'       => self::core_update(),
-			'plugins'           => self::plugins(),
-			'themes'            => self::themes(),
-			'translations'      => self::translations(),
-			'failed_logins_24h' => Siteherd_Login_Monitor::count_last_24h(),
-			'health'            => get_option( Siteherd_Site_Health::OPTION, null ),
-			'integrity'         => get_option( Siteherd_Integrity::OPTION, null ),
-			'sso'               => Siteherd_Sso::summary(),
-			'rollbacks'         => Siteherd_Updater::kept_backups(),
-			'generated_at'      => gmdate( 'c' ),
+			'plugin_version'          => Siteherd_Self_Update::installed_version(),
+			'site_url'                => home_url(),
+			'site_icon'               => get_site_icon_url( 64 ) ?: null,
+			'wp_version'              => get_bloginfo( 'version' ),
+			'php_version'             => PHP_VERSION,
+			'db_version'              => $wpdb->db_version(),
+			'is_multisite'            => is_multisite(),
+			'locale'                  => get_locale(),
+			'core_update'             => self::core_update(),
+			'plugins'                 => self::plugins(),
+			'themes'                  => self::themes(),
+			'translations'            => self::translations(),
+			'failed_logins_24h'       => Siteherd_Login_Monitor::count_last_24h(),
+			'failed_logins_by_source' => Siteherd_Login_Monitor::by_source_last_24h(),
+			'failed_logins_hourly'    => Siteherd_Login_Monitor::hourly_last_24h(),
+			'hardening'               => Siteherd_Hardening::summary(),
+			'lockout'                 => Siteherd_Lockout::summary(),
+			'health'                  => get_option( Siteherd_Site_Health::OPTION, null ),
+			'integrity'               => get_option( Siteherd_Integrity::OPTION, null ),
+			'sso'                     => Siteherd_Sso::summary(),
+			'rollbacks'               => Siteherd_Updater::kept_backups(),
+			'generated_at'            => gmdate( 'c' ),
 		);
 	}
 

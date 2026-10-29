@@ -41,6 +41,16 @@ class Siteherd_Rest {
 				'permission_callback' => array( $this, 'verify_request' ),
 			)
 		);
+		// Login hardening switches set from the dashboard (0.9.0+).
+		register_rest_route(
+			self::NAMESPACE_V1,
+			'/settings',
+			array(
+				'methods'             => WP_REST_Server::CREATABLE,
+				'callback'            => array( $this, 'save_settings' ),
+				'permission_callback' => array( $this, 'verify_request' ),
+			)
+		);
 		register_rest_route(
 			self::NAMESPACE_V1,
 			'/update',
@@ -74,6 +84,35 @@ class Siteherd_Rest {
 
 	public function status() {
 		return rest_ensure_response( Siteherd_Collector::collect() );
+	}
+
+	/**
+	 * Save the settings in the body, then send a report so the dashboard shows them.
+	 *
+	 * @param WP_REST_Request $request Incoming request: {xmlrpc_off?: bool, lockout?: {enabled?, max_retries?, lockout_minutes?}, unlock_all?: bool}.
+	 * @return WP_REST_Response
+	 */
+	public function save_settings( WP_REST_Request $request ) {
+		$body = json_decode( $request->get_body(), true );
+		if ( is_array( $body ) && isset( $body['xmlrpc_off'] ) && is_bool( $body['xmlrpc_off'] ) ) {
+			Siteherd_Hardening::set_xmlrpc_off( $body['xmlrpc_off'] );
+		}
+		// Login lockout (0.10.0+). The proxy setting is only changed on the site's own settings page.
+		if ( is_array( $body ) && isset( $body['lockout'] ) && is_array( $body['lockout'] ) ) {
+			Siteherd_Lockout::save( array_intersect_key( $body['lockout'], array_flip( array( 'enabled', 'max_retries', 'lockout_minutes' ) ) ) );
+		}
+		if ( is_array( $body ) && ! empty( $body['unlock_all'] ) ) {
+			Siteherd_Lockout::unlock_all();
+		}
+		$result = $this->reporter->send();
+		return new WP_REST_Response(
+			array(
+				'ok'       => 201 === $result['code'],
+				'settings' => array_merge( Siteherd_Hardening::summary(), array( 'lockout' => Siteherd_Lockout::summary() ) ),
+				'error'    => $result['error'],
+			),
+			200
+		);
 	}
 
 	/**

@@ -22,6 +22,10 @@ $siteherd_options = array(
 	'siteherd_sso_log',
 	'siteherd_sso_skip_2fa',
 	'siteherd_update_job',
+	'siteherd_xmlrpc_off',
+	'siteherd_lockout',
+	'siteherd_lockout_stats',
+	'siteherd_lockout_generation',
 );
 foreach ( $siteherd_options as $option ) {
 	delete_option( $option );

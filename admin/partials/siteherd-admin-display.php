@@ -33,6 +33,7 @@ $siteherd_icon = function ( $name ) {
 		'check'    => '<circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/>',
 		'x'        => '<circle cx="12" cy="12" r="10"/><path d="m15 9-6 6"/><path d="m9 9 6 6"/>',
 		'send'     => '<path d="M14.536 21.686a.5.5 0 0 0 .937-.024l6.5-19a.496.496 0 0 0-.635-.635l-19 6.5a.5.5 0 0 0-.024.937l7.93 3.18a2 2 0 0 1 1.112 1.11z"/><path d="m21.854 2.147-10.94 10.939"/>',
+		'shield'   => '<path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/>',
 		'refresh'  => '<path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/>',
 	);
 	return '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' . $paths[ $name ] . '</svg>';
@@ -305,6 +306,112 @@ $siteherd_notice_icon = array(
 					<div class="sh-card__footer">
 						<button type="submit" class="sh-btn"><?php esc_html_e( 'Save login settings', 'wp-siteherd' ); ?></button>
 					</div>
+				</form>
+			</div>
+
+			<!-- Login protection -->
+			<div class="sh-card">
+				<div class="sh-card__header">
+					<h2 class="sh-card__title"><?php echo $siteherd_icon( 'shield' ); // phpcs:ignore WordPress.Security.EscapeOutput ?><?php esc_html_e( 'Login protection', 'wp-siteherd' ); ?></h2>
+					<p class="sh-card__desc"><?php esc_html_e( 'Can also be changed from your WP Siteherd dashboard.', 'wp-siteherd' ); ?></p>
+				</div>
+				<form method="post" action="<?php echo esc_url( $siteherd_post_url ); ?>">
+					<input type="hidden" name="action" value="siteherd_save_hardening">
+					<?php wp_nonce_field( 'siteherd_save_hardening' ); ?>
+					<div class="sh-card__content">
+						<label class="sh-switch-row">
+							<span>
+								<strong><?php esc_html_e( 'Block XML-RPC logins', 'wp-siteherd' ); ?></strong>
+								<span class="sh-help"><?php esc_html_e( 'Stops password guessing through xmlrpc.php. Leave off if you use Jetpack or the WordPress mobile app.', 'wp-siteherd' ); ?></span>
+							</span>
+							<span class="sh-toggle">
+								<input type="checkbox" name="siteherd_xmlrpc_off" value="1" <?php checked( Siteherd_Hardening::is_xmlrpc_off() ); ?>>
+								<span class="sh-toggle__track"><span class="sh-toggle__thumb"></span></span>
+							</span>
+						</label>
+
+						<?php
+						$siteherd_lockout  = Siteherd_Lockout::settings();
+						$siteherd_conflict = Siteherd_Lockout::conflict();
+						$siteherd_stats    = Siteherd_Lockout::summary();
+						?>
+						<label class="sh-switch-row">
+							<span>
+								<strong><?php esc_html_e( 'Lock out after failed logins', 'wp-siteherd' ); ?></strong>
+								<span class="sh-help">
+									<?php
+									if ( $siteherd_conflict ) {
+										/* translators: %s: name of another security plugin */
+										echo esc_html( sprintf( __( 'Paused while %s is active, which already does this.', 'wp-siteherd' ), $siteherd_conflict ) );
+									} else {
+										esc_html_e( 'Refuses logins from an IP address after too many wrong passwords. One-click login from the dashboard always works.', 'wp-siteherd' );
+									}
+									?>
+								</span>
+							</span>
+							<span class="sh-toggle">
+								<input type="checkbox" name="siteherd_lockout_enabled" value="1" <?php checked( $siteherd_lockout['enabled'] ); ?>>
+								<span class="sh-toggle__track"><span class="sh-toggle__thumb"></span></span>
+							</span>
+						</label>
+
+						<div class="sh-field">
+							<label class="sh-label" for="siteherd_lockout_retries"><?php esc_html_e( 'Failed logins allowed', 'wp-siteherd' ); ?></label>
+							<select id="siteherd_lockout_retries" name="siteherd_lockout_retries" class="sh-select">
+								<?php foreach ( array( 3, 5, 10, 20 ) as $siteherd_n ) : ?>
+									<option value="<?php echo esc_attr( $siteherd_n ); ?>" <?php selected( $siteherd_n, $siteherd_lockout['max_retries'] ); ?>><?php echo esc_html( $siteherd_n ); ?></option>
+								<?php endforeach; ?>
+							</select>
+						</div>
+
+						<div class="sh-field">
+							<label class="sh-label" for="siteherd_lockout_minutes"><?php esc_html_e( 'Lockout length', 'wp-siteherd' ); ?></label>
+							<select id="siteherd_lockout_minutes" name="siteherd_lockout_minutes" class="sh-select">
+								<?php foreach ( array( 15, 30, 60, 240 ) as $siteherd_n ) : ?>
+									<option value="<?php echo esc_attr( $siteherd_n ); ?>" <?php selected( $siteherd_n, $siteherd_lockout['lockout_minutes'] ); ?>>
+										<?php
+										/* translators: %d: number of minutes */
+										echo esc_html( sprintf( _n( '%d minute', '%d minutes', $siteherd_n, 'wp-siteherd' ), $siteherd_n ) );
+										?>
+									</option>
+								<?php endforeach; ?>
+							</select>
+							<p class="sh-help"><?php esc_html_e( 'The 4th lockout of an address within a day lasts 24 hours.', 'wp-siteherd' ); ?></p>
+						</div>
+
+						<div class="sh-field">
+							<label class="sh-label" for="siteherd_lockout_proxy"><?php esc_html_e( 'Visitor IP address', 'wp-siteherd' ); ?></label>
+							<select id="siteherd_lockout_proxy" name="siteherd_lockout_proxy" class="sh-select">
+								<option value="auto" <?php selected( 'auto', $siteherd_lockout['proxy'] ); ?>><?php esc_html_e( 'Automatic (direct, or behind Cloudflare)', 'wp-siteherd' ); ?></option>
+								<option value="x-forwarded-for" <?php selected( 'x-forwarded-for', $siteherd_lockout['proxy'] ); ?>><?php esc_html_e( 'Behind a proxy that sets X-Forwarded-For', 'wp-siteherd' ); ?></option>
+								<option value="x-real-ip" <?php selected( 'x-real-ip', $siteherd_lockout['proxy'] ); ?>><?php esc_html_e( 'Behind a proxy that sets X-Real-IP', 'wp-siteherd' ); ?></option>
+								<option value="none" <?php selected( 'none', $siteherd_lockout['proxy'] ); ?>><?php esc_html_e( 'Connection address only (REMOTE_ADDR)', 'wp-siteherd' ); ?></option>
+							</select>
+							<p class="sh-help">
+								<?php
+								/* translators: %s: the visitor's IP address as the lockout sees it */
+								echo esc_html( sprintf( __( 'Your address as the lockout sees it: %s. If this is your proxy’s or host’s address rather than yours, pick the setting your host uses, or everyone shares one lockout.', 'wp-siteherd' ), Siteherd_Lockout::current_ip() ? Siteherd_Lockout::current_ip() : __( 'unknown', 'wp-siteherd' ) ) );
+								?>
+							</p>
+						</div>
+
+						<?php if ( $siteherd_stats['lockouts_24h'] || $siteherd_stats['blocked_24h'] ) : ?>
+							<p class="sh-help">
+								<?php
+								/* translators: 1: number of lockouts, 2: number of refused attempts */
+								echo esc_html( sprintf( __( 'Last 24 hours: %1$d lockouts, %2$d login attempts refused.', 'wp-siteherd' ), $siteherd_stats['lockouts_24h'], $siteherd_stats['blocked_24h'] ) );
+								?>
+							</p>
+						<?php endif; ?>
+					</div>
+					<div class="sh-card__footer">
+						<button type="submit" class="sh-btn"><?php esc_html_e( 'Save', 'wp-siteherd' ); ?></button>
+					</div>
+				</form>
+				<form method="post" action="<?php echo esc_url( $siteherd_post_url ); ?>" class="sh-card__footer">
+					<input type="hidden" name="action" value="siteherd_unlock_all">
+					<?php wp_nonce_field( 'siteherd_unlock_all' ); ?>
+					<button type="submit" class="sh-btn sh-btn--outline"><?php esc_html_e( 'Clear all lockouts', 'wp-siteherd' ); ?></button>
 				</form>
 			</div>
 

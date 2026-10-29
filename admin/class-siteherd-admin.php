@@ -136,6 +136,31 @@ class Siteherd_Admin {
 		$this->finish( 'success', __( 'One-click login settings saved.', 'wp-siteherd' ) );
 	}
 
+	public function handle_save_hardening() {
+		$this->authorize( 'siteherd_save_hardening' );
+
+		Siteherd_Hardening::set_xmlrpc_off( isset( $_POST['siteherd_xmlrpc_off'] ) );
+		Siteherd_Lockout::save(
+			array(
+				'enabled'         => isset( $_POST['siteherd_lockout_enabled'] ),
+				'max_retries'     => isset( $_POST['siteherd_lockout_retries'] ) ? absint( $_POST['siteherd_lockout_retries'] ) : 5,
+				'lockout_minutes' => isset( $_POST['siteherd_lockout_minutes'] ) ? absint( $_POST['siteherd_lockout_minutes'] ) : 15,
+				'proxy'           => isset( $_POST['siteherd_lockout_proxy'] ) ? sanitize_key( wp_unslash( $_POST['siteherd_lockout_proxy'] ) ) : 'auto',
+			)
+		);
+		if ( Siteherd_Connection::get() ) {
+			$this->reporter->send();
+		}
+		$this->finish( 'success', __( 'Login protection settings saved.', 'wp-siteherd' ) );
+	}
+
+	public function handle_unlock_all() {
+		$this->authorize( 'siteherd_unlock_all' );
+
+		Siteherd_Lockout::unlock_all();
+		$this->finish( 'success', __( 'All lockouts cleared.', 'wp-siteherd' ) );
+	}
+
 	public function handle_disconnect() {
 		$this->authorize( 'siteherd_disconnect' );
 

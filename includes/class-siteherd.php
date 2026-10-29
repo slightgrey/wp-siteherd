@@ -22,6 +22,9 @@ class Siteherd {
 		require_once $dir . 'class-siteherd-signer.php';
 		require_once $dir . 'class-siteherd-connection.php';
 		require_once $dir . 'class-siteherd-login-monitor.php';
+		require_once $dir . 'class-siteherd-hardening.php';
+		require_once $dir . 'class-siteherd-lockout-policy.php';
+		require_once $dir . 'class-siteherd-lockout.php';
 		require_once $dir . 'class-siteherd-collector.php';
 		require_once $dir . 'class-siteherd-reporter.php';
 		require_once $dir . 'class-siteherd-site-health.php';
@@ -50,6 +53,14 @@ class Siteherd {
 		$logins = new Siteherd_Login_Monitor();
 		$this->loader->add_action( 'wp_login_failed', $logins, 'record_failure' );
 
+		$hardening = new Siteherd_Hardening();
+		$this->loader->add_filter( 'xmlrpc_enabled', $hardening, 'filter_xmlrpc_enabled', 99 );
+
+		$lockout = new Siteherd_Lockout();
+		$this->loader->add_filter( 'authenticate', $lockout, 'block_early', 1, 3 );
+		$this->loader->add_filter( 'authenticate', $lockout, 'block_late', PHP_INT_MAX );
+		$this->loader->add_action( 'wp_login_failed', $lockout, 'record_failure' );
+
 		$sso = new Siteherd_Sso();
 		$this->loader->add_action( 'login_form_siteherd_sso', $sso, 'handle_login' );
 
@@ -76,6 +87,8 @@ class Siteherd {
 			$this->loader->add_action( 'admin_post_siteherd_run_checks', $admin, 'handle_run_checks' );
 			$this->loader->add_action( 'admin_post_siteherd_disconnect', $admin, 'handle_disconnect' );
 			$this->loader->add_action( 'admin_post_siteherd_save_sso', $admin, 'handle_save_sso' );
+			$this->loader->add_action( 'admin_post_siteherd_save_hardening', $admin, 'handle_save_hardening' );
+			$this->loader->add_action( 'admin_post_siteherd_unlock_all', $admin, 'handle_unlock_all' );
 			$this->loader->add_filter( 'plugin_action_links_' . plugin_basename( SITEHERD_FILE ), $admin, 'add_settings_link' );
 		}
 	}

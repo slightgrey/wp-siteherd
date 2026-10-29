@@ -4,7 +4,7 @@ Tags: monitoring, updates, security, agency, maintenance
 Requires at least: 6.0
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 0.7.3
+Stable tag: 0.10.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -46,6 +46,19 @@ From the dashboard you can update plugins, themes and WordPress core, one at a t
 After a successful plugin or theme update, the copy of the version it replaced is kept in wp-content/siteherd-backups/kept/ for 30 days (one per plugin/theme). From the dashboard you can roll back to that copy. If there's no saved copy, plugins and themes from wordpress.org can be rolled back to an earlier version downloaded from wordpress.org. The current version is backed up first, and restored if the site stops loading after the rollback.
 
 == Changelog ==
+
+= 0.10.0 =
+* Login lockout (off until turned on, here or from the dashboard): after too many failed logins from one IP address (5 by default), logins from it are refused for a while (15 minutes by default, 24 hours after the 4th lockout in a day) without checking the password. Covers wp-login.php, XML-RPC and other logins through WordPress. One-click login from the dashboard always works. It stays off while another plugin that locks out IPs is active (Wordfence, Solid Security, Limit Login Attempts Reloaded and others).
+* Behind Cloudflare, the visitor's address is read from CF-Connecting-IP, but only for requests that really come from Cloudflare. Other proxies can be chosen on the settings page. Addresses are stored only as salted hashes in short-lived transients and never sent to the dashboard.
+* Reports send the lockout settings and its 24-hour counts (`lockout`, schema 9). `POST /siteherd/v1/settings` accepts `lockout` and `unlock_all`.
+
+= 0.9.0 =
+* New "Block XML-RPC logins" switch (Settings → WP Siteherd → Login protection, or from the dashboard). WordPress then refuses XML-RPC calls that need a login before checking the password, which stops password guessing through xmlrpc.php. Leave it off for Jetpack and the WordPress mobile app.
+* Reports send failed logins per hour (`failed_logins_hourly`) so the dashboard keeps a history, and the login protection settings (`hardening`). Schema 8.
+* New signed endpoint `POST /siteherd/v1/settings` for the dashboard's XML-RPC switch.
+
+= 0.8.0 =
+* Failed logins are counted per source: login forms, XML-RPC and REST API (still counts only, no usernames or IP addresses). Reports send them as `failed_logins_by_source` (schema 7), so the dashboard shows where attacks come from. Counts stored by older versions show as "Unknown" until they expire after 24 hours.
 
 = 0.7.3 =
 * Remote jobs keep a heartbeat while they work. If the host ends the background request early (LiteSpeed does), the site accepts new jobs again after 5 minutes without a heartbeat instead of 30 minutes after the job started.
