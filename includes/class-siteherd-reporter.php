@@ -96,9 +96,32 @@ class Siteherd_Reporter {
 
 		$code = (int) wp_remote_retrieve_response_code( $response );
 		if ( 201 === $code ) {
+			self::apply_answer( $conn, $response );
 			return $this->store_result( $code, null );
 		}
 		return $this->store_result( $code, self::describe_failure( $code ) );
+	}
+
+	/**
+	 * Take the branding from the dashboard's answer to a report, but only when
+	 * the answer is signed with this site's secret. Older dashboards don't sign
+	 * it; then nothing changes.
+	 *
+	 * @param array $conn     Connection from Siteherd_Connection::get().
+	 * @param array $response wp_remote_post() response.
+	 */
+	private static function apply_answer( $conn, $response ) {
+		$body      = (string) wp_remote_retrieve_body( $response );
+		$site      = (string) wp_remote_retrieve_header( $response, Siteherd_Signer::HEADER_SITE );
+		$timestamp = (string) wp_remote_retrieve_header( $response, Siteherd_Signer::HEADER_TIMESTAMP );
+		$signature = (string) wp_remote_retrieve_header( $response, Siteherd_Signer::HEADER_SIGNATURE );
+		if ( $site !== $conn['id'] || ! Siteherd_Signer::verify( $conn['secret'], $timestamp, $body, $signature ) ) {
+			return;
+		}
+		$data = json_decode( $body, true );
+		if ( is_array( $data ) && array_key_exists( 'branding', $data ) ) {
+			Siteherd_Branding::store( $data['branding'] );
+		}
 	}
 
 	/**

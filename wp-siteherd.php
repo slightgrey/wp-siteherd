@@ -3,7 +3,7 @@
  * Plugin Name:       WP Siteherd
  * Plugin URI:        https://siteherd.example.com
  * Description:       Connects this site to your WP Siteherd dashboard: versions, pending updates and failed logins, reported securely every few minutes.
- * Version:           0.10.0
+ * Version:           0.11.0
  * Requires at least: 6.0
  * Requires PHP:      7.4
  * Author:            slightgrey
@@ -19,7 +19,7 @@ if ( ! defined( 'WPINC' ) ) {
 	die;
 }
 
-define( 'SITEHERD_VERSION', '0.10.0' );
+define( 'SITEHERD_VERSION', '0.11.0' );
 define( 'SITEHERD_FILE', __FILE__ );
 define( 'SITEHERD_DIR', plugin_dir_path( __FILE__ ) );
 

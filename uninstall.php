@@ -11,6 +11,7 @@ if ( ! defined( 'WP_UNINSTALL_PLUGIN' ) ) {
 
 $siteherd_options = array(
 	'siteherd_connection',
+	'siteherd_branding',
 	'siteherd_last_result',
 	'siteherd_failed_logins',
 	'siteherd_health',

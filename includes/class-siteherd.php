@@ -21,6 +21,7 @@ class Siteherd {
 		require_once $dir . 'class-siteherd-loader.php';
 		require_once $dir . 'class-siteherd-signer.php';
 		require_once $dir . 'class-siteherd-connection.php';
+		require_once $dir . 'class-siteherd-branding.php';
 		require_once $dir . 'class-siteherd-login-monitor.php';
 		require_once $dir . 'class-siteherd-hardening.php';
 		require_once $dir . 'class-siteherd-lockout-policy.php';

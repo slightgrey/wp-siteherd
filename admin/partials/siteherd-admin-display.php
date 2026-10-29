@@ -48,8 +48,18 @@ $siteherd_notice_icon = array(
 <div class="wrap sh-wrap">
 	<div class="sh-header">
 		<div>
-			<h1 class="sh-title"><span class="sh-logo">S</span><?php esc_html_e( 'WP Siteherd', 'wp-siteherd' ); ?></h1>
-			<p class="sh-subtitle"><?php esc_html_e( 'Reports this site’s versions, updates, health and security to your WP Siteherd dashboard.', 'wp-siteherd' ); ?></p>
+			<h1 class="sh-title"><span class="sh-logo">S</span><?php echo esc_html( Siteherd_Branding::label() ); ?></h1>
+			<p class="sh-subtitle">
+				<?php
+				$siteherd_agency = Siteherd_Branding::agency();
+				if ( $siteherd_agency ) {
+					/* translators: %s: agency name set in the dashboard. */
+					echo esc_html( sprintf( __( 'Reports this site’s versions, updates, health and security to %s.', 'wp-siteherd' ), $siteherd_agency ) );
+				} else {
+					esc_html_e( 'Reports this site’s versions, updates, health and security to your WP Siteherd dashboard.', 'wp-siteherd' );
+				}
+				?>
+			</p>
 		</div>
 		<?php if ( $connection ) : ?>
 			<span class="sh-badge sh-badge--success"><?php esc_html_e( 'Connected', 'wp-siteherd' ); ?></span>

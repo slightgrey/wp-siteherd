@@ -28,9 +28,10 @@ class Siteherd_Admin {
 	}
 
 	public function add_menu() {
+		$label           = Siteherd_Branding::label();
 		$this->page_hook = add_options_page(
-			__( 'WP Siteherd', 'wp-siteherd' ),
-			__( 'WP Siteherd', 'wp-siteherd' ),
+			$label,
+			$label,
 			'manage_options',
 			self::PAGE_SLUG,
 			array( $this, 'render_page' )

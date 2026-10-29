@@ -38,5 +38,6 @@ class Siteherd_Connection {
 
 	public static function clear() {
 		delete_option( self::OPTION );
+		Siteherd_Branding::clear();
 	}
 }
